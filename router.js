@@ -16,6 +16,9 @@ const unaWrapper = getLnClient()
 
 fastify.get('/', async (request, reply) => {
   // TODO Render html instead of JSON
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Access-Control-Allow-Methods", "GET");
+
   fastify.log.warn('Unexpected request to root. When using a proxy, make sure the URL path is forwarded.')
 
   const words = bech32.toWords(Buffer.from(_lnurlpUrl, 'utf8'))
@@ -31,6 +34,9 @@ fastify.get('/', async (request, reply) => {
 
 fastify.get('/.well-known/lnurlp/:username', async (request, reply) => {
   try {
+    reply.header("Access-Control-Allow-Origin", "*");
+    reply.header("Access-Control-Allow-Methods", "GET");
+
     if (_username !== request.params.username) {
       const result = { status: 'ERROR', reason: 'Username not found' }
       reply.log.warn(result)
