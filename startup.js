@@ -3,7 +3,7 @@ const { LND, Eclair } = require('./backend')
 require('dotenv').config()
 
 const startup = () => {
-  const requiredKeys = ['LIGESS_USERNAME', 'LIGESS_DOMAIN', 'LIGESS_LN_BACKEND']
+  const requiredKeys = ['LIGESS_USERNAME', 'LIGESS_DOMAIN', 'LIGESS_LN_BACKEND', 'MACAROON', 'CERT', 'SOCKET'];
 
   checkKeys(requiredKeys)
 

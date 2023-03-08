@@ -1,6 +1,7 @@
 const fastify = require('fastify')({ logger: true })
 const { bech32 } = require('bech32')
 const crypto = require('crypto')
+const {authenticatedLndGrpc, createInvoice} = require('ln-service');
 const { getLnClient } = require('./lnClient')
 const { getNostrPubKey, verifyZapRequest, storePendingZapRequest, handleInvoiceUpdate } = require('./nostr')
 
@@ -66,25 +67,40 @@ fastify.get('/.well-known/lnurlp/:username', async (request, reply) => {
       
       const metadata = JSON.stringify(zapRequest ? zapRequest : _metadata)
       
-      const invoice = await unaWrapper.createInvoice({
-        amountMsats: msat,
-        descriptionHash: crypto
-          .createHash('sha256')
-          .update(metadata)
-          .digest('hex')
-      })
+      // const invoice = await unaWrapper.createInvoice({
+      //   amountMsats: msat,
+      //   descriptionHash: crypto
+      //     .createHash('sha256')
+      //     .update(metadata)
+      //     .digest('hex')
+      // })
 
-      if (zapRequest) storePendingZapRequest(invoice.paymentHash, zapRequest, request.query.comment, request.log)
+      const {lnd} = authenticatedLndGrpc({cert: process.env.CERT, macaroon: process.env.MACAROON, socket: process.env.SOCKET});
+
+      const invoice = await createInvoice({
+        lnd,
+        mtokens: msat,
+        is_including_private_channels: true,
+        description_hash: crypto
+        .createHash('sha256')
+        .update(metadata)
+        .digest('hex')
+      });
+
+      console.log(invoice);
+
+      if (zapRequest) storePendingZapRequest(invoice.payment, zapRequest, request.query.comment, request.log)
 
       return {
         status: 'OK',
         successAction: { tag: 'message', message: `Thank you for the ${zapRequest ? 'zap' : 'payment'}! --${_username}`},
         routes: [],
-        pr: invoice.bolt11,
+        pr: invoice.request,
         disposable: false,
       }
     }
   } catch (error) {
+    console.error(error);
     const result = { status: 'ERROR', reason: `An error occured while getting invoice: ${error.message}` }
     request.log.warn(result)
     reply.code(400).send(result)
