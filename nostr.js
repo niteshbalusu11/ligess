@@ -116,7 +116,7 @@ const handleInvoiceUpdate = async (invoice) => {
   zapNote.id = await calculateId(zapNote)
   zapNote.sig = await signId(_nostrPrivKey, zapNote.id)
 
-  logger.info({msg: 'Invoice settled', note: zapNote.id, amount: invoice.amount, npub: pubkeytonpub(zapRequest.pubkey), comment: content})
+  console.log(JSON.stringify({msg: 'Invoice settled', note: zapNote.id, amount: invoice.amount, npub: pubkeytonpub(zapRequest.pubkey), comment: content}))
 
   const relaytags = getTags(zapRequest.tags, 'relays')
   relaytags[0].slice(1).forEach(relay => sendNote(relay, zapNote, logger))
@@ -139,22 +139,22 @@ function sendNote(url, note, logger) {
   });
 
   relay.on('notice', (notice) => {
-    logger.info({msg: notice, relay: relay.url})
+    console.log(JSON.stringify({msg: notice, relay: relay.url}))
   });
 
   relay.on('close', (e) => {
     if (e.code !== 1000 && e.code !== 1005) {
-      logger.info({msg: 'Close', relay: relay.url, code: e.code, reason: e.reason})
+      console.log(JSON.stringify({msg: 'Close', relay: relay.url, code: e.code, reason: e.reason}))
     }
   });
   
   relay.on('error', (e) => {
-    logger.warn({msg: e.message, relay: relay.url})
+    console.warn(JSON.stringify({msg: e.message, relay: relay.url}))
   });
   
   relay.on('ok', (id) => {
     if (id === note.id) {
-      logger.info({msg: 'Zap note sent', relay: relay.url})
+      console.log(JSON.stringify({msg: 'Zap note sent', relay: relay.url}))
 
       setImmediate(() => relay.close())
     }
