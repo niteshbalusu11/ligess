@@ -76,6 +76,7 @@ const storePendingZapRequest = (paymentHash, zapRequest, comment, logger) => {
 }
 
 const handleInvoiceUpdate = async (invoice) => {
+  console.log(invoice.status);
 
   if (invoice.status == 'Cancelled') {
     delete pendingZapRequests[invoice.paymentHash]
