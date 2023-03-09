@@ -78,21 +78,18 @@ const storePendingZapRequest = (paymentHash, zapRequest, comment, logger) => {
 }
 
 const handleInvoiceUpdate = async (invoice, sub) => {
-  console.log('handling invoice update', invoice.payment);
-
   if (invoice.is_cancelled) {
     delete pendingZapRequests[invoice.payment]
     return
   }
   if (!invoice.is_confirmed) return
   
-  console.log("invoice payment hash", invoice);
-
   console.log("pending zap requests", pendingZapRequests);
+
   if (!pendingZapRequests[invoice.payment]) return
 
   const {zapRequest, comment, logger} = pendingZapRequests[invoice.payment]
-console.log('reached this point');
+
   let content = ''
   if (comment) {
     content = comment
@@ -120,8 +117,6 @@ console.log('reached this point');
 
   zapNote.id = await calculateId(zapNote)
   zapNote.sig = await signId(_nostrPrivKey, zapNote.id)
-
-  console.log(zapNote);
 
   console.log(JSON.stringify({msg: 'Invoice settled', note: zapNote.id, amount: invoice.mtokens, npub: pubkeytonpub(zapRequest.pubkey), comment: content}))
 
