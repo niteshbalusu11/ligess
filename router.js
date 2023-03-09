@@ -1,7 +1,7 @@
 const fastify = require('fastify')({ logger: true })
 const { bech32 } = require('bech32')
 const crypto = require('crypto')
-const {authenticatedLndGrpc, createInvoice} = require('ln-service');
+const {authenticatedLndGrpc, createInvoice, subscribeToInvoice, subscribeToInvoices} = require('ln-service');
 const { getLnClient } = require('./lnClient')
 const { getNostrPubKey, verifyZapRequest, storePendingZapRequest, handleInvoiceUpdate } = require('./nostr')
 
@@ -93,8 +93,6 @@ fastify.get('/.well-known/lnurlp/:username', async (request, reply) => {
         .digest('hex')
       });
 
-      console.log(invoice);
-
       if (zapRequest) storePendingZapRequest(invoice.payment, zapRequest, request.query.comment, request.log)
 
       return {
@@ -115,7 +113,15 @@ fastify.get('/.well-known/lnurlp/:username', async (request, reply) => {
 })
 
 if (_nostrPubKey) {
-  unaWrapper.watchInvoices().on('invoice-updated', (invoice) => handleInvoiceUpdate(invoice))
+  // unaWrapper.watchInvoices().on('invoice-updated', (invoice) => handleInvoiceUpdate(invoice))
+
+  const {lnd} = authenticatedLndGrpc({cert: process.env.CERT, macaroon: process.env.MACAROON, socket: process.env.SOCKET});
+
+  const sub = subscribeToInvoices({lnd});
+
+  sub.on('invoice_updated', (invoice) => {
+    handleInvoiceUpdate(invoice);
+  })
 }
 
 const start = async () => {

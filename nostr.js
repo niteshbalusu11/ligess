@@ -6,6 +6,8 @@ const buffer = require('buffer')
 const _nostrPrivKey = process.env.LIGESS_NOSTR_ZAPPER_PRIVATE_KEY
 const _nostrPubKey = _nostrPrivKey ? getPublicKey(_nostrPrivKey) : null
 
+console.log("this is a nostr pubkey ", _nostrPubKey);
+
 const pendingZapRequests = {}
 
 if (_nostrPubKey) {
@@ -76,18 +78,21 @@ const storePendingZapRequest = (paymentHash, zapRequest, comment, logger) => {
 }
 
 const handleInvoiceUpdate = async (invoice) => {
-  console.log(invoice.status);
+  console.log(invoice.payment);
 
   if (invoice.status == 'Cancelled') {
-    delete pendingZapRequests[invoice.paymentHash]
+    delete pendingZapRequests[invoice.payment]
     return
   }
   if (!invoice.settled) return
   
-  if (!pendingZapRequests[invoice.paymentHash]) return
+  // console.log("invoice payment hash", invoice);
 
-  const {zapRequest, comment, logger} = pendingZapRequests[invoice.paymentHash]
+  // console.log("pending zap requests", pendingZapRequests);
+  if (!pendingZapRequests[invoice.payment]) return
 
+  const {zapRequest, comment, logger} = pendingZapRequests[invoice.payment]
+console.log('reached this point');
   let content = ''
   if (comment) {
     content = comment
@@ -98,7 +103,7 @@ const handleInvoiceUpdate = async (invoice) => {
   const zapNote = {
     kind: 9735,
     pubkey: _nostrPubKey,
-    created_at: Date.parse(invoice.settleDate) / 1000,
+    created_at: Date.parse(invoice.confirmed_at) / 1000,
     tags: [],
     content: content
   }
@@ -109,19 +114,21 @@ const handleInvoiceUpdate = async (invoice) => {
   const etags = getTags(zapRequest.tags, 'e')
   if (etags.length === 1) zapNote.tags.push(etags[[0]])
 
-  zapNote.tags.push(['bolt11', invoice.bolt11])
+  zapNote.tags.push(['bolt11', invoice.request])
   zapNote.tags.push(['description', JSON.stringify(zapRequest)])
-  zapNote.tags.push(['preimage', invoice.preImage])
+  zapNote.tags.push(['preimage', invoice.secret])
 
   zapNote.id = await calculateId(zapNote)
   zapNote.sig = await signId(_nostrPrivKey, zapNote.id)
 
-  console.log(JSON.stringify({msg: 'Invoice settled', note: zapNote.id, amount: invoice.amount, npub: pubkeytonpub(zapRequest.pubkey), comment: content}))
+  console.log(zapNote);
+
+  console.log(JSON.stringify({msg: 'Invoice settled', note: zapNote.id, amount: invoice.mtokens, npub: pubkeytonpub(zapRequest.pubkey), comment: content}))
 
   const relaytags = getTags(zapRequest.tags, 'relays')
   relaytags[0].slice(1).forEach(relay => sendNote(relay, zapNote, logger))
 
-  delete pendingZapRequests[invoice.paymentHash]
+  delete pendingZapRequests[invoice.payment]
 }
 
 function getTags(tags, tag) {
