@@ -1,5 +1,6 @@
 const fastify = require('fastify')({ logger: true })
 const { bech32 } = require('bech32')
+const {once, on} = require('events')
 const crypto = require('crypto')
 const {authenticatedLndGrpc, createInvoice, subscribeToInvoice, subscribeToInvoices} = require('ln-service');
 const { getLnClient } = require('./lnClient')
@@ -95,6 +96,9 @@ fastify.get('/.well-known/lnurlp/:username', async (request, reply) => {
 
       if (zapRequest) storePendingZapRequest(invoice.payment, zapRequest, request.query.comment, request.log)
 
+      watch(invoice.id);
+
+      
       return {
         status: 'OK',
         successAction: { tag: 'message', message: `Thank you for the ${zapRequest ? 'zap' : 'payment'}! --${_username}`},
@@ -112,18 +116,6 @@ fastify.get('/.well-known/lnurlp/:username', async (request, reply) => {
   }
 })
 
-if (_nostrPubKey) {
-  // unaWrapper.watchInvoices().on('invoice-updated', (invoice) => handleInvoiceUpdate(invoice))
-
-  const {lnd} = authenticatedLndGrpc({cert: process.env.CERT, macaroon: process.env.MACAROON, socket: process.env.SOCKET});
-
-  const sub = subscribeToInvoices({lnd});
-
-  sub.on('invoice_updated', (invoice) => {
-    handleInvoiceUpdate(invoice);
-  })
-}
-
 const start = async () => {
   try {
     await fastify.listen(
@@ -133,6 +125,32 @@ const start = async () => {
   } catch (err) {
     fastify.log.error(err)
     process.exit(1)
+  }
+}
+
+
+const watch = async (id) => {
+  if (_nostrPubKey) {
+    // unaWrapper.watchInvoices().on('invoice-updated', (invoice) => handleInvoiceUpdate(invoice))
+
+    const {lnd} = authenticatedLndGrpc({cert: process.env.CERT, macaroon: process.env.MACAROON, socket: process.env.SOCKET});
+    
+    const sub = subscribeToInvoice({lnd, id});
+    sub.on('invoice_updated', invoice => {
+      handleInvoiceUpdate(invoice, sub);
+    })
+
+    sub.on('error', err => {
+      sub.removeAllListeners();
+
+      console.error('error with invoice subscription', err);
+    })
+
+    // sub.on('invoice_updated', (invoice) => {
+    //   handleInvoiceUpdate(invoice);
+    // })
+  
+    // sub.on('error', err => console.error(err));
   }
 }
 

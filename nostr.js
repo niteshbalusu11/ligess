@@ -77,18 +77,18 @@ const storePendingZapRequest = (paymentHash, zapRequest, comment, logger) => {
   pendingZapRequests[paymentHash] = {zapRequest: zapRequest, comment: comment, logger: logger}
 }
 
-const handleInvoiceUpdate = async (invoice) => {
-  console.log(invoice.payment);
+const handleInvoiceUpdate = async (invoice, sub) => {
+  console.log('handling invoice update', invoice.payment);
 
-  if (invoice.status == 'Cancelled') {
+  if (invoice.is_cancelled) {
     delete pendingZapRequests[invoice.payment]
     return
   }
-  if (!invoice.settled) return
+  if (!invoice.is_confirmed) return
   
-  // console.log("invoice payment hash", invoice);
+  console.log("invoice payment hash", invoice);
 
-  // console.log("pending zap requests", pendingZapRequests);
+  console.log("pending zap requests", pendingZapRequests);
   if (!pendingZapRequests[invoice.payment]) return
 
   const {zapRequest, comment, logger} = pendingZapRequests[invoice.payment]
@@ -129,6 +129,8 @@ console.log('reached this point');
   relaytags[0].slice(1).forEach(relay => sendNote(relay, zapNote, logger))
 
   delete pendingZapRequests[invoice.payment]
+
+  sub.removeAllListeners();
 }
 
 function getTags(tags, tag) {
